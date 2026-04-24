@@ -828,13 +828,38 @@ def run_github_repo_scan(job):
         
         found = scan_file_content(content, filename, target_url=f"github://{repo}/{filename}")
         for v in found:
-            append_log(session_id, f"[ERROR] {filename} | Line {v['line_number']} | {v['vulnerability_type']}", level="ERROR")
-            v["patch_explanation"] = get_remediation_info(v["vulnerability_type"], v["code_snippet"]).get("explanation")
+            existing = db.query(Vulnerability).filter(
+                Vulnerability.file_name == v["file_name"],
+                Vulnerability.line_number == v["line_number"],
+                Vulnerability.vulnerability_type == v["vulnerability_type"]
+            ).first()
             
-            db_vuln = Vulnerability(**v, scan_session_id=scan_session.id)
-            db.add(db_vuln)
-            db.commit()
-            detected_vulns.append(db_vuln)
+            is_new = False
+            if not existing:
+                if not validate_patch_logic(v["vulnerability_type"], v["code_snippet"]):
+                    is_new = True
+            elif existing.status in ["FAILED", "DETECTED"]:
+                is_new = True
+            elif existing.status in ["FIXED", "VALIDATED", "PATCHED", "QUEUED_FOR_PATCH", "PROCESSING", "PATCH_GENERATING"]:
+                append_log(session_id, f"[SUCCESS] {filename} | Line {v['line_number']} | Threat neutralized by prior AegisCore patch", level="SUCCESS")
+            
+            if is_new:
+                append_log(session_id, f"[ERROR] {filename} | Line {v['line_number']} | {v['vulnerability_type']}", level="ERROR")
+                v["patch_explanation"] = get_remediation_info(v["vulnerability_type"], v["code_snippet"]).get("explanation")
+                
+                if existing:
+                    # Reuse existing record to avoid DB growth
+                    for key, value in v.items():
+                        setattr(existing, key, value)
+                    existing.scan_session_id = scan_session.id
+                    existing.last_scan_timestamp = datetime.datetime.utcnow()
+                    detected_vulns.append(existing)
+                else:
+                    db_vuln = Vulnerability(**v, scan_session_id=scan_session.id)
+                    db.add(db_vuln)
+                    detected_vulns.append(db_vuln)
+        
+        db.commit()
             
     total_risk = sum(v.risk_score for v in detected_vulns)
     scan_session.total_vulnerabilities = len(detected_vulns)
@@ -894,40 +919,36 @@ def run_filesystem_scan(session_id: str):
                     found = scan_file_content(content, file)
                     append_log(session_id, f"[DEBUG] Found {len(found)} vulnerabilities in {file}")
                     for v in found:
-                        append_log(session_id, f"[ERROR] {file} | Line {v['line_number']} | {v['vulnerability_type']}", level="ERROR")
-                        # Sync with database model fields
-                        v["patch_explanation"] = get_remediation_info(v["vulnerability_type"], v["code_snippet"]).get("explanation")
-                        
                         existing = db.query(Vulnerability).filter(
                             Vulnerability.file_name == v["file_name"],
                             Vulnerability.line_number == v["line_number"],
                             Vulnerability.vulnerability_type == v["vulnerability_type"]
                         ).first()
                         
-                        if existing:
-                            is_new = False
-                            # Handle existing vulnerabilities
-                            if existing.status == "FIXED":
-                                # Re-detect only if changed AND now unsafe
-                                if existing.code_snippet != v["code_snippet"] and not validate_patch_logic(v["vulnerability_type"], v["code_snippet"]):
-                                    is_new = True
-                            elif existing.status == "FAILED":
+                        is_new = False
+                        if not existing:
+                            if not validate_patch_logic(v["vulnerability_type"], v["code_snippet"]):
                                 is_new = True
-                            elif existing.status == "DETECTED" and existing.code_snippet != v["code_snippet"]:
-                                existing.code_snippet = v["code_snippet"]
-                                db.commit()
+                        elif existing.status in ["FAILED", "DETECTED"]:
+                            is_new = True
+                        elif existing.status in ["FIXED", "VALIDATED", "PATCHED", "QUEUED_FOR_PATCH", "PROCESSING", "PATCH_GENERATING"]:
+                            append_log(session_id, f"[SUCCESS] {file} | Line {v['line_number']} | Threat neutralized by prior AegisCore patch", level="SUCCESS")
+                        
+                        if is_new:
+                            append_log(session_id, f"[ERROR] {file} | Line {v['line_number']} | {v['vulnerability_type']}", level="ERROR")
+                            v["patch_explanation"] = get_remediation_info(v["vulnerability_type"], v["code_snippet"]).get("explanation")
                             
-                            if not is_new:
+                            if existing:
+                                for key, value in v.items():
+                                    setattr(existing, key, value)
                                 existing.scan_session_id = scan_session.id
                                 existing.last_scan_timestamp = datetime.datetime.utcnow()
+                                existing.status = "QUEUED_FOR_PATCH"
                                 detected_vulns.append(existing)
-                                continue # Skip re-adding
-                        
-                        # If we reach here, it's a new or re-detected vulnerability
-                        v_id = v["id"]
-                        db_vuln = Vulnerability(**v, scan_session_id=scan_session.id)
-                        db.add(db_vuln)
-                        detected_vulns.append(db_vuln)
+                            else:
+                                db_vuln = Vulnerability(**v, scan_session_id=scan_session.id, status="QUEUED_FOR_PATCH")
+                                db.add(db_vuln)
+                                detected_vulns.append(db_vuln)
                         
     if not detected_vulns:
         append_log(session_id, "No vulnerabilities detected in modules.", level="SUCCESS")
@@ -1418,8 +1439,11 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
                     if not existing:
                         if not validate_patch_logic(v_type, stripped):
                             is_new = True
-                    elif existing.status == "FAILED":
+                    elif existing.status in ["FAILED", "DETECTED"]:
                         is_new = True
+                    elif existing.status in ["FIXED", "VALIDATED", "PATCHED", "QUEUED_FOR_PATCH", "PROCESSING", "PATCH_GENERATING"]:
+                        append_log(session_id, f"[SUCCESS]     Threat neutralized by prior AegisCore patch.", level="SUCCESS")
+                    
                     if is_new:
                         v_id = f"WEB-{random.randint(10000, 99999)}"
                         remediation = get_remediation_info(v_type, stripped)
@@ -1475,6 +1499,12 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
                         detected_vulns.append(db_vuln)
                         found_count += 1
                         append_log(session_id, f"[ERROR] SQL_INJECTION risk: Unsanitized form field '{inp.get('name', 'unnamed')}' in {app_name}", level="ERROR")
+                    elif existing.status in ["FAILED", "DETECTED"]:
+                        detected_vulns.append(existing)
+                        found_count += 1
+                        append_log(session_id, f"[ERROR] SQL_INJECTION risk: Unsanitized form field '{inp.get('name', 'unnamed')}' in {app_name} (Re-detected)", level="ERROR")
+                    elif existing.status in ["FIXED", "VALIDATED", "PATCHED", "QUEUED_FOR_PATCH", "PROCESSING", "PATCH_GENERATING"]:
+                        append_log(session_id, f"[SUCCESS] SQL_INJECTION risk neutralized by prior AegisCore patch in {app_name}", level="SUCCESS")
                         # time.sleep(0.5) removed
 
         db.commit()
