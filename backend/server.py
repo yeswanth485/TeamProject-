@@ -913,9 +913,8 @@ def run_filesystem_scan(session_id: str):
                         v_id = v["id"]
                         db_vuln = Vulnerability(**v, scan_session_id=scan_session.id)
                         db.add(db_vuln)
-                        db.commit() # Trigger queue
                         detected_vulns.append(db_vuln)
-    
+                        
     if not detected_vulns:
         append_log(session_id, "No vulnerabilities detected in modules.", level="SUCCESS")
         
@@ -924,7 +923,12 @@ def run_filesystem_scan(session_id: str):
     scan_session.total_vulnerabilities = len(detected_vulns)
     scan_session.overall_risk_score = total_risk
     
-    db.commit()
+    db.commit() # Commit all found vulnerabilities first
+    
+    # Now that they are in the DB, safely add to the automation queue
+    for v in detected_vulns:
+        add_to_patch_queue(v.id)
+
     append_log(session_id, f"Scan session {scan_session.id} finished.", level="SUCCESS")
     db.close()
     
@@ -1053,19 +1057,21 @@ def run_website_audit(scan_id: str, website_id: str):
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
-                        db.commit()
+                        detected_vulns.append(db_vuln)
                         detected_count += 1
                         scan_session.total_vulnerabilities += 1
                         scan_session.overall_risk_score += risk
-                        
-                        # Phase 8: Auto-queue
-                        add_to_patch_queue(db_vuln.id)
 
         if detected_count == 0:
             append_log(scan_id, "No critical vulnerabilities detected.", level="SUCCESS")
         
         append_log(scan_id, "Audit Completed Successfully.", level="SUCCESS")
-        db.commit()
+        db.commit() # Commit everything
+        
+        # Auto-queue after commit
+        for v in detected_vulns:
+            add_to_patch_queue(v.id)
+            
         # Trigger Bridge
         trigger_autonomous_remediation(detected_count, scan_id)
     except Exception as e:
@@ -1346,6 +1352,7 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
     """
     db = SessionLocal()
     found_count = 0
+    detected_vulns = []
     
     try:
         append_log(session_id, f"[INFO] Negotiating connection with {url}...")
@@ -1410,8 +1417,8 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
+                        detected_vulns.append(db_vuln)
                         found_count += 1
-                        add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
                         # Log to scanner terminal
                         append_log(session_id, f"[ERROR] {v_type} confirmed in {app_name}", level="ERROR")
                         append_log(session_id, f"[ERROR]   Heuristic confidence: 99.2% | Pattern: {stripped[:50]}...", level="ERROR")
@@ -1445,12 +1452,16 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
+                        detected_vulns.append(db_vuln)
                         found_count += 1
-                        add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
                         append_log(session_id, f"[ERROR] SQL_INJECTION risk: Unsanitized form field '{inp.get('name', 'unnamed')}' in {app_name}", level="ERROR")
                         # time.sleep(0.5) removed
 
         db.commit()
+        
+        for v in detected_vulns:
+            add_to_patch_queue(v.id)
+            
     except Exception as e:
         append_log(session_id, f"[WARN] Error scanning {app_name}: {str(e)}", level="WARNING")
     finally:
@@ -1464,8 +1475,8 @@ def scan_website_core(url: str, session_id: str, app_name: str, scan_session_id:
     append_log(session_id, f"[INFO] Negotiating connection with {app_name}...")
     append_log(session_id, f"[INFO] GET {url} HTTP/1.1")
     db = SessionLocal()
-    
-    try:
+    detected_vulns = []
+
         response = requests.get(url, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         append_log(session_id, "[REALTIME] Handlers established. Parsing document object tree...", level="INFO")
@@ -1545,7 +1556,7 @@ def scan_website_core(url: str, session_id: str, app_name: str, scan_session_id:
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
-                        add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
+                        detected_vulns.append(db_vuln)
                         
                         # Update scan session metrics
                         scan_session = db.query(ScanSession).filter(ScanSession.id == scan_session_id).first()
@@ -1591,7 +1602,7 @@ def scan_website_core(url: str, session_id: str, app_name: str, scan_session_id:
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
-                        add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
+                        detected_vulns.append(db_vuln)
                         
                         # Update scan session metrics
                         scan_session = db.query(ScanSession).filter(ScanSession.id == scan_session_id).first()
@@ -1607,6 +1618,10 @@ def scan_website_core(url: str, session_id: str, app_name: str, scan_session_id:
             append_log(session_id, "No vulnerabilities detected.", level="SUCCESS")
 
         db.commit()
+        
+        for v in detected_vulns:
+            add_to_patch_queue(v.id)
+            
         db.close()
         return len(detected_vulns)
     except Exception as e:

@@ -1127,7 +1127,7 @@
                     <td class="p-6 font-mono text-[11px] text-emerald-500 font-bold tracking-wider">${v.id}</td>
                     <td class="p-6">
                         <div class="text-white font-black text-sm mb-1 tracking-tight italic">${v.vulnerability_type}</div>
-                        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest truncate max-w-[220px] inline-block" title="${v.file_name}">${v.file_name}</div>
+                        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest truncate max-w-full block" title="${v.file_name}">${v.file_name}</div>
                     </td>
                     <td class="p-6">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]">
@@ -1135,7 +1135,7 @@
                         </span>
                     </td>
                     <td class="p-6">
-                        <div class="font-mono text-slate-400 text-[11px] bg-black/40 px-3 py-2 rounded-xl border border-white/5 truncate max-w-[200px]" title="${v.target_url}">
+                        <div class="font-mono text-slate-400 text-[11px] bg-black/40 px-3 py-2 rounded-xl border border-white/5 truncate max-w-full" title="${v.target_url}">
                             ${v.target_url || 'LOCAL KERNEL'}
                         </div>
                     </td>
@@ -1182,15 +1182,15 @@
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table class="w-full text-left border-collapse table-fixed">
                             <thead class="bg-black/60 text-[11px] text-slate-500 uppercase font-black tracking-[0.4em] border-b border-white/5">
                                 <tr>
-                                    <th class="p-8">Registry ID</th>
-                                    <th class="p-8">Vector Signature</th>
-                                    <th class="p-8">Criticality</th>
-                                    <th class="p-8">Logical Source</th>
-                                    <th class="p-8">Kernel Status</th>
-                                    <th class="p-8 text-right">Directives</th>
+                                    <th class="p-8 w-[15%]">Registry ID</th>
+                                    <th class="p-8 w-[25%]">Vector Signature</th>
+                                    <th class="p-8 w-[15%]">Criticality</th>
+                                    <th class="p-8 w-[20%]">Logical Source</th>
+                                    <th class="p-8 w-[15%]">Kernel Status</th>
+                                    <th class="p-8 w-[10%] text-right">Directives</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/[0.03] text-sm">${rows || '<tr><td colspan="6" class="p-40 text-center text-slate-700 font-black tracking-[0.5em] italic uppercase opacity-50 animate-pulse">_ Awaiting neural scan data...</td></tr>'}</tbody>
