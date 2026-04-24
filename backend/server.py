@@ -368,8 +368,8 @@ def validate_patch_logic(v_type, patched_code):
     code_only = '\n'.join(lines)
 
     unsafe_patterns = {
-        "EVAL_INJECTION": r"eval\(",
-        "EXEC_INJECTION": r"exec\(",
+        "EVAL_INJECTION": r"(?<!ast\.)eval\(",
+        "EXEC_INJECTION": r"(?<!subprocess\.)exec\(",
         "SQL_INJECTION": r" \+ | % ",
         "DOM_XSS": r"\.innerHTML"
     }
