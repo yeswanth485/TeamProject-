@@ -1217,7 +1217,8 @@ def run_queuing_task():
                 new_added += 1
                 # Detailed sequential feedback
                 append_log("pipeline", f"[INGEST] ({i+1}/{found_count}) Queueing: {vuln.vulnerability_type} in {vuln.file_name}")
-                db.commit()
+        
+        db.commit()
             
         if new_added > 0:
             append_log("pipeline", f"[SYSTEM] QUEUING_COMPLETE: {new_added} new vulnerabilities added to remediation pipeline.", level="SUCCESS")
@@ -1392,7 +1393,6 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
                             is_new = True
                     elif existing.status == "FAILED":
                         is_new = True
-                    
                     if is_new:
                         v_id = f"WEB-{random.randint(10000, 99999)}"
                         remediation = get_remediation_info(v_type, stripped)
@@ -1410,7 +1410,6 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
-                        db.commit()
                         found_count += 1
                         add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
                         # Log to scanner terminal
@@ -1446,12 +1445,12 @@ def scan_website_core_scan_only(url: str, session_id: str, app_name: str, scan_s
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
-                        db.commit()
                         found_count += 1
                         add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
                         append_log(session_id, f"[ERROR] SQL_INJECTION risk: Unsanitized form field '{inp.get('name', 'unnamed')}' in {app_name}", level="ERROR")
                         # time.sleep(0.5) removed
 
+        db.commit()
     except Exception as e:
         append_log(session_id, f"[WARN] Error scanning {app_name}: {str(e)}", level="WARNING")
     finally:
@@ -1546,7 +1545,6 @@ def scan_website_core(url: str, session_id: str, app_name: str, scan_session_id:
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
-                        db.commit() # Commit each to trigger queue
                         add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
                         
                         # Update scan session metrics
@@ -1593,7 +1591,6 @@ def scan_website_core(url: str, session_id: str, app_name: str, scan_session_id:
                             last_scan_timestamp=datetime.datetime.utcnow()
                         )
                         db.add(db_vuln)
-                        db.commit()
                         add_to_patch_queue(db_vuln.id) # FULL AUTOMATION
                         
                         # Update scan session metrics
