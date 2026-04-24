@@ -85,6 +85,7 @@ def append_log(session_id, msg, level="INFO"):
 # --- CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = BASE_DIR
+FRONTEND_DIR = os.path.join(os.path.dirname(BASE_DIR), "frontend")  # ../frontend/
 DB_PATH = os.path.join(PROJECT_ROOT, "vulnerabilities_enforced.db")
 TEST_DATA_DIR = os.path.join(PROJECT_ROOT, "test_data")
 
@@ -176,7 +177,7 @@ async def no_cache(request, call_next):
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
-    index_path = os.path.join(PROJECT_ROOT, "index.html")
+    index_path = os.path.join(FRONTEND_DIR, "index.html")
     if not os.path.exists(index_path):
         return HTMLResponse(content="<h1>AegisCore: Frontend Index Not Found</h1>", status_code=404)
     with open(index_path, "r", encoding="utf-8") as f:
@@ -185,7 +186,7 @@ def read_root():
 @app.get("/github_banner.png")
 def get_github_banner():
     """Serves the generated premium GitHub visual asset."""
-    banner_path = os.path.join(PROJECT_ROOT, "github_banner.png")
+    banner_path = os.path.join(FRONTEND_DIR, "github_banner.png")
     if os.path.exists(banner_path):
         return FileResponse(banner_path)
     return JSONResponse(status_code=404, content={"detail": "Banner asset not found"})
@@ -684,7 +685,7 @@ PREDEFINED_WEBSITES = [
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
-    path = os.path.join(BASE_DIR, "index.html")
+    path = os.path.join(FRONTEND_DIR, "index.html")
     if not os.path.exists(path):
         # Fallback if somehow moved
         return HTMLResponse(content="<h1>Index.html not found at root</h1>", status_code=404)
