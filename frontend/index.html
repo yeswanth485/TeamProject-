@@ -314,7 +314,7 @@
                         console.log("[WORKFLOW] Scan Complete. Atomic Queue Count:", this.queueCount);
                         
                         // Fully Autonomous Handover: Auto-switch to Automation Kernel
-                        if (this.queueCount > 0) {
+                        if (foundCount > 0 || this.queueCount > 0) {
                             console.log("[WORKFLOW] Errors found. Engaging Automation Kernel view...");
                             setTimeout(() => {
                                 app.switchTerminalMode('pipeline');

@@ -1122,7 +1122,7 @@ def executive_scan(background_tasks: BackgroundTasks):
     Phase 1: Scan all predefined websites and log errors to Scanner terminal.
     """
     global pipeline_paused
-    pipeline_paused = True  # Restored pause for manual confirmation
+    # Removed pause to ensure fully autonomous operation
     
     session_id = "executive-" + str(uuid.uuid4())[:8]
     terminal_sessions[session_id] = {"logs": [], "status": "RUNNING"}
