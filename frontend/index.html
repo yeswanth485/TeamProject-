@@ -285,11 +285,12 @@
             },
 
             async fetchTerminal() {
+                if (router.current !== 'terminal') return;
                 try {
                     const [scanRes, pipeRes, statusRes] = await Promise.all([
-                        fetch(`${API_URL}/terminal-stream?session_id=${this.currentScanId}`),
-                        fetch(`${API_URL}/terminal-stream?session_id=pipeline`),
-                        fetch(`${API_URL}/pipeline/status`)
+                        fetch(`${API_URL}/terminal-stream?session_id=${this.currentScanId}&t=${Date.now()}`),
+                        fetch(`${API_URL}/terminal-stream?session_id=pipeline&t=${Date.now()}`),
+                        fetch(`${API_URL}/pipeline/status?t=${Date.now()}`)
                     ]);
 
                     const scanData = await scanRes.json();
@@ -505,6 +506,12 @@
             terminalMode: 'scan',
             lastPage: null, // Track page for stability
 
+            switchTerminalMode(mode) {
+                this.terminalMode = mode;
+                router.go('terminal');
+                pipelineState.fetchTerminal();
+            },
+
             init() {
                 router.go('dashboard');
                 pipelineState.fetchWebsites();
@@ -632,7 +639,9 @@
                                     </div>
                                     <div class="p-8 bg-black/60 rounded-[30px] border border-rose-500/20 shadow-inner relative group">
                                         <div class="absolute top-4 right-4 text-[9px] font-mono text-rose-500/50 uppercase">Line: ${v.line_number}</div>
-                                        <pre class="text-rose-200 font-mono text-xs leading-relaxed whitespace-pre-wrap">${v.code_snippet || '// No pattern extracted'}</pre>
+                                        <div class="max-h-32 overflow-y-auto custom-scrollbar pr-4">
+                                            <pre class="text-rose-200 font-mono text-xs leading-relaxed whitespace-pre-wrap">${v.code_snippet || '// No pattern extracted'}</pre>
+                                        </div>
                                     </div>
                                     <div class="p-6 bg-rose-500/5 rounded-2xl border border-rose-500/10">
                                         <p class="text-rose-400/70 text-[11px] font-bold leading-relaxed italic italic">"Critical logic sink detected. Direct execution or unparameterized data flow allows unauthorized kernel manipulation."</p>
@@ -647,7 +656,9 @@
                                     </div>
                                     <div class="p-8 bg-black/60 rounded-[30px] border border-emerald-500/20 shadow-inner relative group">
                                         <div class="absolute top-4 right-4 text-[9px] font-mono text-emerald-500/50 uppercase">Secured v4.0.2</div>
-                                        <pre class="text-emerald-300 font-mono text-xs leading-relaxed whitespace-pre-wrap">${v.suggested_fix || v.patched_code || '// AI generating remedy...'}</pre>
+                                        <div class="max-h-32 overflow-y-auto custom-scrollbar pr-4">
+                                            <pre class="text-emerald-300 font-mono text-xs leading-relaxed whitespace-pre-wrap">${v.suggested_fix || v.patched_code || '// AI generating remedy...'}</pre>
+                                        </div>
                                     </div>
                                     <div class="p-6 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
                                         <p class="text-emerald-400/70 text-[11px] font-bold leading-relaxed italic">"${v.patch_explanation || 'Adaptive patch synthesis: Replaced raw execution with high-security abstraction layers and input sanitization.'}"</p>
