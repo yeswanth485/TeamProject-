@@ -19,6 +19,7 @@ import regex as re
 import threading
 import hashlib
 import time
+import concurrent.futures
 
 # --- GLOBAL LOGS & SESSIONS ---
 terminal_sessions = {}
@@ -754,18 +755,30 @@ def fetch_github_repo_files(repo_full_name, branch, session_id):
 
         append_log(session_id, f"[GITHUB] Found {len(files_to_scan)} scannable code files in remote repository.")
         fetched_contents = []
-        for f in files_to_scan:
+        
+        def fetch_single_file(f):
             path = f["path"]
             blob_url = f["url"]
-            append_log(session_id, f"[GITHUB] Fetching memory map for: {path}...")
-            
-            blob_headers = headers.copy()
-            blob_headers["Accept"] = "application/vnd.github.v3.raw"
-            content_resp = requests.get(blob_url, headers=blob_headers)
-            if content_resp.status_code == 200:
-                fetched_contents.append({"filename": path, "content": content_resp.text})
-            else:
-                append_log(session_id, f"[WARNING] Failed to fetch raw file: {path}", level="WARNING")
+            try:
+                blob_headers = headers.copy()
+                blob_headers["Accept"] = "application/vnd.github.v3.raw"
+                content_resp = requests.get(blob_url, headers=blob_headers, timeout=5)
+                if content_resp.status_code == 200:
+                    return {"filename": path, "content": content_resp.text}
+                else:
+                    append_log(session_id, f"[WARNING] Failed to fetch raw file: {path} (HTTP {content_resp.status_code})", level="WARNING")
+            except Exception as e:
+                append_log(session_id, f"[WARNING] Error fetching file {path}: {str(e)}", level="WARNING")
+            return None
+
+        append_log(session_id, f"[GITHUB] Accelerating file download with concurrent threads...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            results = executor.map(fetch_single_file, files_to_scan)
+            for res in results:
+                if res:
+                    fetched_contents.append(res)
+                    
+        append_log(session_id, f"[GITHUB] Successfully downloaded {len(fetched_contents)} files.")
         return fetched_contents
     except Exception as e:
         append_log(session_id, f"[ERROR] Exception during GitHub fetch: {str(e)}", level="ERROR")
@@ -1229,7 +1242,7 @@ def trigger_autonomous_remediation(total_found, session_id):
         queuing_active = True
         
         def autonomous_bridge():
-            time.sleep(1.5) # Small delay for UI sync
+            time.sleep(0.1) # Minimized delay for instant UI response
             
             if len(patch_queue) > 0:
                 # Scanner already populated the queue - skip ingestion, start patching NOW
