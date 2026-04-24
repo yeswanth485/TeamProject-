@@ -1476,7 +1476,8 @@ def scan_website_core(url: str, session_id: str, app_name: str, scan_session_id:
     append_log(session_id, f"[INFO] GET {url} HTTP/1.1")
     db = SessionLocal()
     detected_vulns = []
-
+    
+    try:
         response = requests.get(url, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         append_log(session_id, "[REALTIME] Handlers established. Parsing document object tree...", level="INFO")
