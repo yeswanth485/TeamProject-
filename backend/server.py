@@ -367,18 +367,23 @@ def validate_patch_logic(v_type, patched_code):
     lines = [l for l in patched_code.split('\n') if not l.strip().startswith('#')]
     code_only = '\n'.join(lines)
 
-    unsafe_patterns = {
-        "EVAL_INJECTION": r"(?<!ast\.)eval\(",
-        "EXEC_INJECTION": r"(?<!subprocess\.)exec\(",
-        "SQL_INJECTION": r" \+ | % ",
-        "DOM_XSS": r"\.innerHTML"
-    }
-    
-    pattern = unsafe_patterns.get(v_type)
-    if not pattern: return True
-    
-    if re.search(pattern, code_only):
-        return False
+    if v_type == "EVAL_INJECTION":
+        # Allow ast.literal_eval, block raw eval
+        safe_code = code_only.replace("ast.literal_eval", "SAFE_BLOCK")
+        if "eval(" in safe_code: return False
+        
+    elif v_type == "EXEC_INJECTION":
+        # Allow subprocess.run/call, block raw exec
+        safe_code = code_only.replace("subprocess.run", "SAFE_BLOCK").replace("subprocess.call", "SAFE_BLOCK")
+        if "exec(" in safe_code: return False
+        
+    elif v_type == "SQL_INJECTION":
+        # Block string concatenation in SQL context
+        if " + " in code_only or " % " in code_only: return False
+        
+    elif v_type == "DOM_XSS":
+        if ".innerHTML" in code_only: return False
+        
     return True
 
 # --- PATCH QUEUE WORKER ---
