@@ -27,7 +27,7 @@ scan_queue = []
 active_scan = None
 patch_queue = []
 active_patch = None
-pipeline_paused = True # Default to paused until user confirms
+pipeline_paused = False # Auto-engage: no manual confirmation needed
 queuing_active = False # New flag to track background queuing process
 scan_sessions_data = {} # Step 1: Store session metadata for queue confirmation
 
@@ -144,10 +144,24 @@ class Feedback(Base):
 Base.metadata.create_all(bind=engine)
 
 # --- FASTAPI APP ---
-APP_VERSION = "v3.0-automated-pipeline"
+APP_VERSION = "v3.1-fresh-start"
 print(f"[INIT] DEPLOYED VERSION {APP_VERSION}")
 
 app = FastAPI(title="AegisCore Centralized Pipeline")
+
+@app.on_event("startup")
+def fresh_start_on_deploy():
+    """Clear all vulnerability and scan session data on every fresh deploy."""
+    try:
+        db = SessionLocal()
+        db.query(Feedback).delete()
+        db.query(Vulnerability).delete()
+        db.query(ScanSession).delete()
+        db.commit()
+        db.close()
+        print("[INIT] Fresh start: All previous scan data cleared from database.")
+    except Exception as e:
+        print(f"[INIT] Warning: Could not clear old data on startup: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -1289,37 +1303,43 @@ def run_executive_scan_task(session_id: str):
     db.refresh(scan_session)
     
     total_found = 0
-    vuln_ids = []
+    all_detected_vulns = []
     
     for site in PREDEFINED_WEBSITES:
         append_log(session_id, f"[SCAN] -> Auditing: {site['name']}", level="INFO")
         try:
-            # We use scan_website_core_scan_only which returns count and stores as DETECTED
             found = scan_website_core_scan_only(site["url"], session_id, site["name"], scan_session.id)
             total_found += found
-            
-            # Retrieve the IDs of vulnerabilities found for this site
-            site_vulns = db.query(Vulnerability).filter(
-                Vulnerability.scan_session_id == scan_session.id,
-                Vulnerability.file_name == site["name"],
-                Vulnerability.status == "DETECTED"
-            ).all()
-            vuln_ids.extend([v.id for v in site_vulns])
-            
         except Exception as e:
             append_log(session_id, f"[SCAN]   X Error: {site['name']} | {str(e)}", level="WARNING")
     
-    append_log(session_id, f"")
+    append_log(session_id, "")
     append_log(session_id, "=== SCAN COMPLETE ===", level="SUCCESS")
-    append_log(session_id, "[SYSTEM] EXECUTIVE SCAN SUCCESSFUL. VULNERABILITIES DETECTED.", level="SUCCESS")
+    append_log(session_id, f"[SYSTEM] EXECUTIVE SCAN COMPLETE. {total_found} vulnerabilities detected.", level="SUCCESS")
     append_log(session_id, "[SYSTEM] INITIATING FULLY AUTONOMOUS REMEDIATION HANDOVER...", level="SUCCESS")
 
     terminal_sessions[session_id]["found_count"] = total_found
     terminal_sessions[session_id]["status"] = "COMPLETED"
-    db.close()
     
-    # Fully Autonomous Handover:
-    trigger_autonomous_remediation(total_found, session_id)
+    # Retrieve all detected vulns from this scan session and queue them
+    if total_found > 0:
+        all_detected_vulns = db.query(Vulnerability).filter(
+            Vulnerability.scan_session_id == scan_session.id,
+            Vulnerability.status == "DETECTED"
+        ).all()
+        append_log("pipeline", f"[SYSTEM] AUTONOMOUS KERNEL: Queuing {len(all_detected_vulns)} vulnerabilities for remediation...", level="INFO")
+        for v in all_detected_vulns:
+            job = {"vuln_id": v.id, "status": "QUEUED"}
+            patch_queue.append(job)
+            v.status = "QUEUED_FOR_PATCH"
+        db.commit()
+        append_log("pipeline", f"[SUCCESS] AUTOMATION PATH FINDING INITIATED. COMMENCING REMEDIATION PROTOCOL...", level="SUCCESS")
+        db.close()
+        # Directly start the patch worker
+        process_patch_queue()
+    else:
+        db.close()
+        append_log("pipeline", "[INFO] No vulnerabilities found during executive scan. Kernel idle.", level="INFO")
 
 
 def scan_website_task(url: str, session_id: str, app_name: str):

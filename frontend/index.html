@@ -1124,43 +1124,43 @@
             renderVulns(el) {
                 const rows = pipelineState.vulnerabilities.map(v => `
                 <tr class="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
-                    <td class="p-6 font-mono text-[11px] text-emerald-500 font-bold tracking-wider">${v.id}</td>
-                    <td class="p-6">
-                        <div class="text-white font-black text-sm mb-1 tracking-tight italic">${v.vulnerability_type}</div>
-                        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest truncate max-w-full block" title="${v.file_name}">${v.file_name}</div>
+                    <td class="px-4 py-3 font-mono text-[10px] text-emerald-500 font-bold tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">${v.id}</td>
+                    <td class="px-4 py-3">
+                        <div class="text-white font-black text-xs mb-0.5 tracking-tight italic">${v.vulnerability_type}</div>
+                        <div class="text-[9px] text-slate-500 font-bold uppercase tracking-widest overflow-hidden text-ellipsis whitespace-nowrap" title="${v.file_name}">${v.file_name}</div>
                     </td>
-                    <td class="p-6">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]">
-                            <i data-lucide="shield-alert" class="w-2.5 h-2.5 mr-1.5"></i> ${v.severity}
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                            <i data-lucide="shield-alert" class="w-2 h-2 mr-1"></i> ${v.severity}
                         </span>
                     </td>
-                    <td class="p-6">
-                        <div class="font-mono text-slate-400 text-[11px] bg-black/40 px-3 py-2 rounded-xl border border-white/5 truncate max-w-full" title="${v.target_url}">
-                            ${v.target_url || 'LOCAL KERNEL'}
+                    <td class="px-4 py-3">
+                        <div class="font-mono text-slate-400 text-[9px] bg-black/40 px-2 py-1 rounded-lg border border-white/5 overflow-hidden text-ellipsis whitespace-nowrap" title="${v.target_url}">
+                            ${(v.target_url || 'LOCAL KERNEL').substring(0, 35)}${(v.target_url || '').length > 35 ? '...' : ''}
                         </div>
                     </td>
-                    <td class="p-6">
-                        <span class="inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${v.status === 'FIXED' || v.status === 'VALIDATED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]' :
-                        v.status.includes('PATCH') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.2)]' :
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${v.status === 'FIXED' || v.status === 'VALIDATED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]' :
+                        v.status.includes('PATCH') || v.status.includes('QUEUE') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse' :
                             'bg-slate-800/40 text-slate-400 border border-white/10'
                     }">
                             ${v.status.replace(/_/g, ' ')}
                         </span>
                     </td>
-                    <td class="p-6 text-right">
-                        <div class="flex items-center justify-end gap-3">
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex items-center justify-end gap-1.5">
                             <button onclick="app.showIntelligenceHUD('${v.id}')" 
-                                    class="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-600 border border-emerald-500/20 hover:border-emerald-400 text-emerald-400 hover:text-white transition-all shadow-lg group-hover:scale-110 active:scale-90"
-                                    title="Technical Intelligence Analysis">
-                                <i data-lucide="brain-circuit" class="w-4 h-4"></i>
+                                    class="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-600 border border-emerald-500/20 hover:border-emerald-400 text-emerald-400 hover:text-white transition-all"
+                                    title="Intelligence Analysis">
+                                <i data-lucide="brain-circuit" class="w-3 h-3"></i>
                             </button>
                             <button onclick="pipelineState.activeVulnId = '${v.id}'; router.go('patch-lab')" 
-                                    class="p-2 rounded-xl bg-white/5 hover:bg-emerald-600 border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition-all shadow-lg group-hover:scale-110">
-                                <i data-lucide="eye" class="w-4 h-4"></i>
+                                    class="p-1.5 rounded-lg bg-white/5 hover:bg-emerald-600 border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition-all">
+                                <i data-lucide="eye" class="w-3 h-3"></i>
                             </button>
                             <button onclick="app.submitFeedback('${v.id}')" 
-                                    class="p-2 rounded-xl bg-white/5 hover:bg-emerald-600 border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition-all shadow-lg group-hover:scale-110">
-                                <i data-lucide="message-square" class="w-4 h-4"></i>
+                                    class="p-1.5 rounded-lg bg-white/5 hover:bg-emerald-600 border border-white/10 hover:border-emerald-400 text-slate-400 hover:text-white transition-all">
+                                <i data-lucide="message-square" class="w-3 h-3"></i>
                             </button>
                         </div>
                     </td>
@@ -1169,31 +1169,31 @@
 
                 el.innerHTML = `
                 <div class="glass rounded-[35px] overflow-hidden border border-white/10 shadow-3xl bg-[#020617]/40 backdrop-blur-3xl">
-                    <div class="p-8 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-emerald-900/10 to-transparent">
+                    <div class="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-emerald-900/10 to-transparent">
                         <div>
-                            <h3 class="text-2xl font-black text-white tracking-tight uppercase italic mb-1">Threat Vector Spectrum</h3>
+                            <h3 class="text-xl font-black text-white tracking-tight uppercase italic mb-0.5">Threat Vector Spectrum</h3>
                             <p class="text-[10px] text-slate-500 font-bold tracking-[0.3em] uppercase opacity-70">Live remediation kernel synchronization active</p>
                         </div>
                         <div class="flex gap-4">
-                            <div class="px-4 py-2 rounded-2xl bg-black/40 border border-white/5 flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <div class="px-3 py-1.5 rounded-2xl bg-black/40 border border-white/5 flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">Kernel Online</span>
                             </div>
                         </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-fixed">
-                            <thead class="bg-black/60 text-[11px] text-slate-500 uppercase font-black tracking-[0.4em] border-b border-white/5">
+                            <thead class="bg-black/60 text-[10px] text-slate-500 uppercase font-black tracking-[0.3em] border-b border-white/5">
                                 <tr>
-                                    <th class="p-8 w-[15%]">Registry ID</th>
-                                    <th class="p-8 w-[25%]">Vector Signature</th>
-                                    <th class="p-8 w-[15%]">Criticality</th>
-                                    <th class="p-8 w-[20%]">Logical Source</th>
-                                    <th class="p-8 w-[15%]">Kernel Status</th>
-                                    <th class="p-8 w-[10%] text-right">Directives</th>
+                                    <th class="px-4 py-3 w-[14%]">Registry ID</th>
+                                    <th class="px-4 py-3 w-[22%]">Vector Signature</th>
+                                    <th class="px-4 py-3 w-[12%]">Criticality</th>
+                                    <th class="px-4 py-3 w-[22%]">Logical Source</th>
+                                    <th class="px-4 py-3 w-[16%]">Kernel Status</th>
+                                    <th class="px-4 py-3 w-[14%] text-right">Directives</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/[0.03] text-sm">${rows || '<tr><td colspan="6" class="p-40 text-center text-slate-700 font-black tracking-[0.5em] italic uppercase opacity-50 animate-pulse">_ Awaiting neural scan data...</td></tr>'}</tbody>
+                            <tbody class="divide-y divide-white/[0.03] text-sm">${rows || '<tr><td colspan="6" class="p-20 text-center text-slate-700 font-black tracking-[0.5em] italic uppercase opacity-50 animate-pulse">_ Awaiting neural scan data...</td></tr>'}</tbody>
                         </table>
                     </div>
                 </div>
