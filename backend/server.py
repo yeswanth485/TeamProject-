@@ -262,16 +262,21 @@ EXPLANATION: <your explanation here>
 """
 
     def call_llm_api(self, prompt: str):
-        # Placeholder for actual API call, acting fast and error-free if no key
         if not self.api_key:
             return None
-        # Example Implementation:
-        # import google.generativeai as genai
-        # genai.configure(api_key=self.api_key)
-        # model = genai.GenerativeModel(self.model_name)
-        # response = model.generate_content(prompt)
-        # return response.text
-        return None
+        
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+            model = genai.GenerativeModel(self.model_name)
+            response = model.generate_content(prompt)
+            return response.text
+        except ImportError:
+            print("[AI-ENGINE] google-generativeai module not installed. Falling back to offline.")
+            return None
+        except Exception as e:
+            print(f"[AI-ENGINE] LLM API call failed: {str(e)}")
+            return None
 
     def get_patch(self, v_type, original_code):
         if not original_code or original_code.startswith(f"<{v_type}>"):
