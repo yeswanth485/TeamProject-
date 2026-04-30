@@ -1,6 +1,6 @@
 import os
 import sys
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -166,7 +166,7 @@ def fresh_start_on_deploy():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -174,6 +174,9 @@ app.add_middleware(
 @app.middleware("http")
 async def enterprise_security_middleware(request: Request, call_next):
     # Phase 11: Enterprise API Authentication Framework
+    if request.method == "OPTIONS":
+        return await call_next(request)
+        
     require_auth = os.getenv("REQUIRE_AUTH", "False").lower() in ("true", "1", "t")
     if require_auth and request.url.path not in ["/", "/webhook/github"] and not request.url.path.startswith("/test_data/"):
         api_key = request.headers.get("Aegis-API-Key")
@@ -249,6 +252,9 @@ async def global_exception_handler(request, exc):
 class FeedbackRequest(BaseModel):
     rating: int
     comment: str
+
+class ScanRequest(BaseModel):
+    url: str
 
 ALLOWED_VULN_TYPES = ["EVAL_INJECTION", "EXEC_INJECTION", "SQL_INJECTION", "DOM_XSS"]
 
@@ -1132,8 +1138,8 @@ def scan_predefined_website(website_id: str, background_tasks: BackgroundTasks):
     return {"scan_id": session_id}
 
 @app.post("/scan-website")
-def scan_website_manual(payload: dict, background_tasks: BackgroundTasks):
-    url = payload.get("url")
+def scan_website_manual(payload: ScanRequest, background_tasks: BackgroundTasks):
+    url = payload.url
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
     
@@ -1157,8 +1163,8 @@ def executive_scan(background_tasks: BackgroundTasks):
     return {"scan_id": session_id, "status": "RUNNING"}
 
 @app.post("/scan-github")
-def scan_github_endpoint(payload: dict):
-    url = payload.get("url", "")
+def scan_github_endpoint(payload: ScanRequest):
+    url = payload.url
     if not url or "github.com/" not in url:
         raise HTTPException(status_code=400, detail="Invalid GitHub URL")
         
